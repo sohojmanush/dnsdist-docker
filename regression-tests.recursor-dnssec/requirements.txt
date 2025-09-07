@@ -1,8 +1,0 @@
-dnspython>=1.11
-pytest
-protobuf>=2.5; sys_platform != 'darwin'
-protobuf>=3.0; sys_platform == 'darwin'
-pyasn1==0.4.8
-pysnmp>=5,<6
-requests>=2.1.0
-Twisted>0.15.0

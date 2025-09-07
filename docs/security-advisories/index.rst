@@ -1,12 +1,12 @@
 Security Advisories
 ===================
-All security advisories for the PowerDNS Authoritative Server are listed here.
+All security advisories for the DNSDist are listed here.
 
 .. toctree::
     :maxdepth: 1
     :glob:
     :reversed:
 
-    powerdns-advisory*
+    powerdns-advisory-for-dnsdist*
 
-.. include:: older-than-3.0.rst
+If you have a security problem to report, please see our :doc:`security policy <../common/security-policy>`.

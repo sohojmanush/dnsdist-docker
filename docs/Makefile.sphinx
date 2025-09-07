@@ -4,7 +4,7 @@
 # You can set these variables from the command line.
 SPHINXOPTS    =
 SPHINXBUILD   = .venv/bin/sphinx-build
-SPHINXPROJ    = PowerDNSAuthoritativeServer
+SPHINXPROJ    = dnsdist
 SOURCEDIR     = .
 BUILDDIR      = _build
 
@@ -21,5 +21,7 @@ help: .venv
 
 .venv:
 	python3 -m venv .venv
-	.venv/bin/pip install -U pip setuptools setuptools-git wheel
+	.venv/bin/pip install -U pip setuptools
 	.venv/bin/pip install -r requirements.txt
+
+

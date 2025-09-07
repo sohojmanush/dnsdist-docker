@@ -1,1 +1,0 @@
-../standalone_fuzz_target_runner.cc

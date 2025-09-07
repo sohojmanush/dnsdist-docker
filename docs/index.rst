@@ -1,75 +1,67 @@
-PowerDNS Authoritative Nameserver
-=================================
+dnsdist Overview
+================
 
-The PowerDNS Authoritative Server is a versatile nameserver which
-supports a large number of backends. These backends can either be plain
-zone files or be more dynamic in nature.
+:program:`dnsdist` is a highly DNS-, DoS- and abuse-aware loadbalancer.
+Its goal in life is to route traffic to the best server, delivering top performance to legitimate users while shunting or blocking abusive traffic.
 
-PowerDNS has the concepts of 'backends'. A backend is a datastore that
-the server will consult that contains DNS records (and some metadata).
-The backends range from database backends (:doc:`MySQL <backends/generic-mysql>`, :doc:`PostgreSQL <backends/generic-postgresql>`)
-and :doc:`BIND zone files <backends/bind>` to :doc:`co-processes <backends/pipe>` and :doc:`JSON API's <backends/remote>`.
+:program:`dnsdist` is dynamic, its configuration can be changed at runtime via a :doc:`console-like interface <guides/console>`.
+It exposes :doc:`metrics <statistics>` that can be exported via Carbon, Prometheus, an HTTP API and the console.
 
-Multiple backends can be enabled in the configuration by using the
-:ref:`setting-launch` option. Each backend can be configured separately.
+Until 2.0.0 the configuration was written in `Lua <http://lua.org>`_, but it is now possible to write the configuration in :doc:`yaml <reference/yaml-settings>` as well.
 
-See the :doc:`backend <backends/index>` documentation for more information.
+A configuration to balance DNS queries to several backend servers:
 
-This documentation is also available as a `PDF document <PowerDNS-Authoritative.pdf>`_.
+.. code-block:: lua
 
-Getting Started
+   newServer({address="2620:fe::fe"})
+   newServer({address="2620:fe::9"})
+   newServer({address="9.9.9.9"})
+   newServer({address="2001:db8::1"})
+   newServer({address="[2001:db8::2]:5300", name="dns1"})
+   newServer("192.0.2.1")
+
+Or in ``yaml``:
+
+.. code-block:: yaml
+
+  backends:
+    - address: "2620:fe::fe"
+      protocol: Do53
+    - address: "2620:fe::9"
+      protocol: Do53
+    - address: "9.9.9.9"
+      protocol: Do53
+    - address: "2001:db8::1"
+      protocol: Do53
+    - address: "[2001:db8::1]:5300"
+      name: "dns1"
+      protocol: Do53
+    - address: "192.0.2.1"
+      protocol: Do53
+
+
+Running dnsdist
 ---------------
 
-* :doc:`Install the Authoritative Server <installation>`
-* :doc:`Configure the Server <settings>`
-* :doc:`Configure the backend(s) <backends/index>`
+If you have not worked with dnsdist before, here are some resources to get you going:
 
-Getting Support
----------------
-PowerDNS is an open source program so you may get help from the PowerDNS users' community or from its authors.
-You may also help others (please do).
+* :doc:`Install dnsdist <install>`.
+* To get a feeling for how it works, see the :doc:`Quickstart Guide <quickstart>`.
+* :doc:`running`
+* The :doc:`rules-actions` page covers how to apply policies to traffic
+* There are several :doc:`guides/index` about the different features and options
+* :doc:`advanced/index` describes some of the more advanced features
+* :doc:`reference/index` has all the configuration and object information
 
-Public support is available via several different channels:
+Questions, requests or comments?
+--------------------------------
 
-* This documentation
-* `The mailing list <https://www.powerdns.com/mailing-lists.html>`_
-* ``#powerdns`` on `irc.oftc.net <irc://irc.oftc.net/#powerdns>`_
+There are several ways to reach us:
+
+* The `dnsdist mailing-list <https://mailman.powerdns.com/mailman/listinfo/dnsdist>`_
+* #powerdns on `irc.oftc.net <irc://irc.oftc.net/#powerdns>`_
 
 The Open-Xchange/PowerDNS company can provide help or support you in private as well.
-Please `contact Open-Xchange <https://www.open-xchange.com/about-ox/contact-us/>`__.
+Please `contact PowerDNS <https://www.powerdns.com/contact-us>`__.
 
-My information is confidential, must I send it to the mailing list, discuss it on IRC, or post it in a GitHub ticket?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Yes, we have a support policy called `"Open Source Support: out in the open" <https://blog.powerdns.com/2016/01/18/open-source-support-out-in-the-open/>`_.
-
-If you desire privacy, please consider entering a support relationship with us, in which case we invite you to `contact Open-Xchange <https://www.open-xchange.com/about-ox/contact-us/>`__.
-
-I have a question!
-^^^^^^^^^^^^^^^^^^
-This happens, we're here to help!
-Read below on how you can get help
-
-What details should I supply?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Start out with stating what you think should be happening.
-Quite often, wrong expectations are the actual problem.
-Furthermore, your operating system, which version of PowerDNS you use and where you got it from (RPM, .DEB, tar.bz2).
-If you compiled it yourself, what were the ``./configure`` parameters.
-
-If possible, supply the actual name of your domain and the IP address of your server(s).
-
-I found a bug!
-^^^^^^^^^^^^^^
-As much as we'd like to think we are perfect, bugs happen.
-If you have found a bug, please file a bug report on `GitHub <https://github.com/PowerDNS/pdns/issues/new?template=bug_report.md>`_.
-Please fill in the template and we'll try our best to help you.
-
-I found a security issue!
-^^^^^^^^^^^^^^^^^^^^^^^^^
-Please report this in private, see the :ref:`securitypolicy`.
-
-I have a good idea for a feature!
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-We like to work on new things!
-You can file a feature request on `GitHub <https://github.com/PowerDNS/pdns/issues/new?template=feature_request.md>`__.
-
+This documentation is also available as a `PDF document <dnsdist.pdf>`_.

@@ -1,1 +1,0 @@
-../regression-tests.recursor-dnssec/extendederrors.py

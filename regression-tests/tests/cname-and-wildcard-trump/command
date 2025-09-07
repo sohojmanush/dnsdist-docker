@@ -1,2 +1,0 @@
-#!/bin/sh
-cleandig test.mixed-wc.example.com A

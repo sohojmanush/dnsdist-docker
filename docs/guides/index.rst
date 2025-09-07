@@ -1,17 +1,22 @@
-Guides and How Tos
-==================
+Guides
+======
+
+These chapters contain several guides and nuggets of information regarding dnsdist operation and accomplishing specific goals.
 
 .. toctree::
-  :maxdepth: 1
+   :maxdepth: 2
 
-  basic-database
-  recursion
-  virtual-instances
-  alias
-  svcb
-  kskroll
-  kskrollcdnskey
-  zskroll
-  algoroll
-  addingrecords
+   console
+   cache
+   webserver
+   downstreams
+   serverpools
+   serverselection
+   carbon
+   dns-over-https
+   dns-over-http3
+   dns-over-quic
+   dns-over-tls
+   dnscrypt
+
 

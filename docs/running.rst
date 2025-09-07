@@ -1,171 +1,67 @@
-Running and Operating
-=====================
+Running and Configuring dnsdist
+===============================
 
-On Linux, PowerDNS is controlled by a systemd service called ``pdns.service``.
-The service definition file should be installed by the binary package, and can also be found in the tarball (``pdns.service.in`` template file).
+dnsdist is meant to run as a daemon.
+As such, distribution native packages know how to stop/start themselves using operating system services.
 
-On non-Linux systems, a SysV-style init script can be used, and should be supplied by the operating system packages.
+It is configured with a configuration file called ``dnsdist.conf``
+The default path to this file is determined by the ``SYSCONFDIR`` variable during compilation.
+Most likely this path is ``/etc/dnsdist``,  ``/etc`` or ``/usr/local/etc/``, dnsdist will tell you on startup which file it reads.
 
-Furthermore, PowerDNS can be run on the foreground for testing or for use with other init-systems that supervise processes.
+dnsdist is designed to (re)start almost instantly.
+But to prevent downtime when changing configuration, the console (see :ref:`Console`) can be used for live configuration.
 
-Also see :doc:`guides/virtual-instances`.
+Issuing :func:`delta` on the console will print the changes to the configuration that have been made since startup::
 
-.. _running-guardian:
+  > delta()
+  -- Wed Feb 22 2017 11:31:44 CET
+  addLocal('127.0.0.1:5301', false)
+  -- Wed Feb 22 2017 12:03:48 CET
+  addACL('192.0.2.1/8')
+  -- Wed Feb 22 2017 12:05:51 CET
+  addACL('2001:db8::1')
 
-Guardian
---------
+These commands can be copied to the configuration file, should they need to persist after a restart.
 
-When the init-system of the Operating System does not properly
-supervises processes, like SysV init, it is recommended to run PowerDNS
-with the :ref:`setting-guardian` option set to 'yes'.
+Running as unprivileged user
+----------------------------
 
-When launched with ``guardian=yes``, ``pdns_server`` wraps itself inside
-a 'guardian'. This guardian monitors the performance of the inner
-``pdns_server`` instance which shows up in the process list of your OS
-as ``pdns_server-instance``. It is also this guardian that
-:ref:`running-pdnscontrol` talks to. A **STOP** is interpreted
-by the guardian, which causes the guardian to sever the connection to
-the inner process and terminate it, after which it terminates itself.
-Requests that require data from the actual nameserver are passed to the
-inner process as well.
+:program:`dnsdist` can drop privileges using the ``--uid`` and ``--gid`` command line switches to ensure it does not run with root privileges.
+Note that :program:`dnsdist` drops its privileges **after** parsing its startup configuration and binding its listening and initial :func:`newServer` sockets as user `root`.
+It is highly recommended to create a system user and group for :program:`dnsdist`.
+Note that most packaged versions of :program:`dnsdist` already create this user.
 
-Logging to syslog on systemd-based operating systems
-----------------------------------------------------
+Understanding how queries are forwarded to backends
+---------------------------------------------------
 
-By default, logging to syslog is disabled in the systemd unit file
-to prevent the service logging twice, as the systemd journal picks up
-the output from the process itself.
+Initially dnsdist tried to forward a query to the backend using the same protocol than the client used to contact dnsdist: queries received over UDP were forwarded over UDP, and the same for TCP. When incoming DNSCrypt and DNS over TLS support were added, the same logic was applied, so DoT queries are forwarded over TCP. For DNS over HTTPS, UDP was selected instead for performance reason, breaking with the existing logic.
 
-Removing the ``--disable-syslog`` option from the ``ExecStart`` line
-using ``systemctl edit --full pdns`` enables logging to syslog.
+Before 1.7.0, which introduced TCP fallback, that meant that there was a potential issue with very large answers and DNS over HTTPS, requiring careful configuration of the path between dnsdist and the backend. More information about that is available in the :doc:`DNS over HTTPS section <guides/dns-over-https>`.
 
-.. _logging-to-syslog:
+In addition to TCP fallback for DoH, 1.7.0 introduced three new notions:
 
-Logging to syslog
------------------
-This chapter assumes familiarity with syslog, the unix logging device.
-PowerDNS logs messages with different levels.
-The more urgent the message, the lower the 'priority'.
+ * TCP-only backends, for which queries will always forwarded over a TCP connection (see the `tcpOnly` parameter of :func:`newServer`)
+ * DNS over HTTPS backends, for which queries are forwarded over a DNS over HTTPS connection (see the `dohPath` parameter of :func:`newServer`)
+ * and DNS over TLS backends, for which queries are forwarded over a DNS over TLS connection (see the `tls` parameter of :func:`newServer`)
 
-By default, PowerDNS will only log messages with an urgency of 3 or lower, but this can be changed using the :ref:`setting-loglevel` setting in the configuration file.
-Setting it to 0 will eliminate all logging, 9 will log everything.
+To sum it up:
 
-By default, logging is performed under the 'DAEMON' facility which is shared with lots of other programs.
-If you regard nameserving as important, you may want to have it under a dedicated facility so PowerDNS can log to its own files, and not clutter generic files.
-
-For this purpose, syslog knows about 'local' facilities, numbered from LOCAL0 to LOCAL7.
-To move PowerDNS logging to LOCAL0, add :ref:`logging-facility=0 <setting-logging-facility>` to your configuration.
-
-Furthermore, you may want to have separate files for the differing priorities - preventing lower priority messages from obscuring important ones.
-A sample ``syslog.conf`` might be::
-
-  local0.info                       -/var/log/pdns.info
-  local0.warn                       -/var/log/pdns.warn
-  local0.err                        /var/log/pdns.err
-
-Where local0.err would store the really important messages.
-For performance and disk space reasons, it is advised to audit your ``syslog.conf`` for statements also logging PowerDNS activities.
-Many ``syslog.conf``\ s have a ``*.*`` statement to ``/var/log/syslog``, which you may want to remove.
-
-For performance reasons, be especially certain that no large amounts of synchronous logging take place.
-Under Linux, this is indicated by file names not starting with a ``-`` - indicating a synchronous log, which hurts performance.
-
-Be aware that syslog by default logs messages at the configured priority and higher!
-To log only info messages, use ``local0.=info``
-
-Controlling A Running PowerDNS Server
--------------------------------------
-
-As a DNS server is critical infrastructure, downtimes should be avoided
-as much as possible. Even though PowerDNS (re)starts very fast, it
-offers a way to control it while running.
-
-.. _control-socket:
-
-Control Socket
-~~~~~~~~~~~~~~
-
-The controlsocket is the means to contact a running PowerDNS process.
-Over this socket, instructions can be sent using the ``pdns_control``
-program. The control socket is called ``pdns.controlsocket`` and is
-created inside the :ref:`setting-socket-dir`.
-
-.. _running-pdnscontrol:
-
-``pdns_control``
-~~~~~~~~~~~~~~~~
-
-To communicate with PowerDNS Authoritative Server over the
-controlsocket, the ``pdns_control`` command is used. The syntax is
-simple: ``pdns_control command arguments``. Currently this is most
-useful for telling backends to rediscover domains or to force the
-transmission of notifications. See :ref:`master-operation`.
-
-For all supported ``pdns_control`` commands and options, see :doc:`the
-manpage <../manpages/pdns_control.1>` and the output of
-``pdns_control --help`` on your system.
-
-Backend manipulation
-~~~~~~~~~~~~~~~~~~~~
-
-``pdnsutil``
-~~~~~~~~~~~~
-
-To perform zone and record changes using inbuilt tools, the ``pdnsutil`` command can be used. All available options are described in the online :doc:`manual page <../manpages/pdnsutil.1>` as well as in ``man pdnsutil``.
-
-The SysV init script
---------------------
-
-This script supplied with the PowerDNS source accepts the following
-commands:
-
--  ``monitor``: Monitor is a special way to view the daemon. It executes
-   PowerDNS in the foreground with a lot of logging turned on, which
-   helps in determining startup problems. Besides running in the
-   foreground, the raw PowerDNS control socket is made available. All
-   external communication with the daemon is normally sent over this
-   socket. While useful, the control console is not an officially
-   supported feature. Commands which work are: ``QUIT``, ``SHOW *``,
-   ``SHOW varname``, ``RPING``.
--  ``start``: Start PowerDNS in the background. Launches the daemon but
-   makes no special effort to determine success, as making database
-   connections may take a while. Use ``status`` to query success. You
-   can safely run ``start`` many times, it will not start additional
-   PowerDNS instances.
--  ``restart``: Restarts PowerDNS if it was running, starts it
-   otherwise.
--  ``status``: Query PowerDNS for status. This can be used to figure out
-   if a launch was successful. The status found is prefixed by the PID
-   of the main PowerDNS process.
--  ``stop``: Requests that PowerDNS stop. Again, does not confirm
-   success. Success can be ascertained with the ``status`` command.
--  ``dump``: Dumps a lot of statistics of a running PowerDNS daemon. It
-   is also possible to single out specific variable by using the
-   ``show`` command.
--  ``show variable``: Show a single statistic, as present in the output
-   of the ``dump``.
--  ``mrtg``: Dump statistics in mrtg format. See the performance
-   :ref:`counters` documentation.
-
-.. note::
-  Packages provided by Operating System vendors might support
-  different or less commands.
-
-Running in the foreground
--------------------------
-
-One can run PowerDNS in the foreground by invoking the ``pdns_server``
-executable. Without any options, it will load the ``pdns.conf`` and run.
-To make sure PowerDNS starts in the foreground, add the ``--daemon=no``
-option.
-
-All :doc:`settings <settings>` can be added on the commandline. e.g. to
-test a new database config, you could start PowerDNS like this:
-
-.. code-block:: shell
-
-    pdns_server --no-config --daemon=no --local-port=5300 --launch=gmysql --gmysql-user=my_user --gmysql-password=mypassword
-
-This starts PowerDNS without loading on-disk config, in the foreground,
-on all network interfaces on port 5300 and starting the
-:doc:`gmysql <backends/generic-mysql>` backend.
++--------------+--------------------+---------------------------+----------------------+----------------------+
+| Incoming     | Outgoing (regular) | Outgoing (TCP-only, 1.7+) | Outgoing (TLS, 1.7+) | Outgoing (DoH, 1.7+) |
++==============+====================+===========================+======================+======================+
+| UDP          | UDP                | TCP                       | TLS                  | DoH                  |
++--------------+--------------------+---------------------------+----------------------+----------------------+
+| TCP          | TCP                | TCP                       | TLS                  | DoH                  |
++--------------+--------------------+---------------------------+----------------------+----------------------+
+| DNSCrypt UDP | UDP                | TCP                       | TLS                  | DoH                  |
++--------------+--------------------+---------------------------+----------------------+----------------------+
+| DNSCrypt TCP | TCP                | TCP                       | TLS                  | DoH                  |
++--------------+--------------------+---------------------------+----------------------+----------------------+
+| DoT          | TCP                | TCP                       | TLS                  | DoH                  |
++--------------+--------------------+---------------------------+----------------------+----------------------+
+| DoH          | **UDP**            | TCP                       | TLS                  | DoH                  |
++--------------+--------------------+---------------------------+----------------------+----------------------+
+| DoQ          | TCP                | TCP                       | TLS                  | DoH                  |
++--------------+--------------------+---------------------------+----------------------+----------------------+
+| DoH3         | TCP                | TCP                       | TLS                  | DoH                  |
++--------------+--------------------+---------------------------+----------------------+----------------------+
